@@ -180,7 +180,7 @@ def main(page: ft.Page):
                 neues_modul = Modul(
                     modul_name.value.strip(),
                     modul_farbe.value,
-                    modul_Bereich.value.strip() if modul_Bereich.value else ""
+                    modul_beschreibung.value.strip() if modul_beschreibung.value else ""
                 )
                 
                 # Zur Liste hinzufügen
