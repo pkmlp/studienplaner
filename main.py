@@ -231,6 +231,7 @@ def main(page: ft.Page):
         modul_name.focus()
         page.update()
 
+
     # Block 3: Aufgabe hinzufügen Dialog
     def aufgabe_hinzufuegen_dialog(e=None):
         if not app.aktuelles_modul:
@@ -318,14 +319,14 @@ def main(page: ft.Page):
         # Tastatureingaben aktivieren (nur einmal registrieren in main!)
         page.on_keyboard_event = on_key
 
-
     def aktualisiere_module_liste():
         module_list.controls.clear()     
+
         if not app.module:
             module_list.controls.append(
                 ft.Container(
-                    content=ft.Text("Noch keine Module vorhanden. Erstellen Sie Ihr erstes Modul!", 
-                                  size=16, text_align=ft.TextAlign.CENTER, italic=True),
+                    content=ft.Text("Noch keine Module vorhanden.", 
+                                    size=18, text_align=ft.TextAlign.CENTER, italic=True),
                     padding=20,
                     alignment=ft.alignment.center
                 )
@@ -335,7 +336,58 @@ def main(page: ft.Page):
                 fortschritt = modul.get_fortschritt()
                 aufgaben_anzahl = len(modul.aufgaben)
                 erledigte_anzahl = sum(1 for a in modul.aufgaben if a.erledigt)
-                
+
+                def loesche_modul(e, zu_loeschendes_modul=modul):
+                    def modul_loeschen_bestaetigt(e=None):
+                        if zu_loeschendes_modul in app.module:
+                            app.module.remove(zu_loeschendes_modul)
+                            app.aktuelles_modul = None if app.aktuelles_modul == zu_loeschendes_modul else app.aktuelles_modul
+                            app.daten_speichern()
+                            aktualisiere_module_liste()
+                            aktualisiere_aufgaben_liste()
+                            aktualisiere_dashboard()
+
+                            # Snackbar anzeigen
+                            snack = ft.SnackBar(
+                                ft.Text(f"Modul '{zu_loeschendes_modul.name}' erfolgreich gelöscht."),
+                                duration=3000
+                            )
+                            page.snack_bar = snack
+                            page.overlay.append(snack)
+                            snack.open = True
+                            
+                        page.dialog.open = False
+                        page.update()
+
+                    def modul_loeschen_abbrechen(e=None):
+                        page.dialog.open = False
+                        page.update()
+
+                    def on_key(e: ft.KeyboardEvent):
+                        if not dialog.open:
+                            return
+                        if e.key == "Escape":
+                            modul_loeschen_abbrechen()
+                        elif e.key == "Enter":
+                            modul_loeschen_bestaetigt()
+
+                    dialog = ft.AlertDialog(
+                        modal=True,
+                        title=ft.Text("Modul löschen"),
+                        content=ft.Text(f"Möchten Sie das Modul '{zu_loeschendes_modul.name}' wirklich löschen?"),
+                        actions=[
+                            ft.TextButton("Abbrechen", on_click=modul_loeschen_abbrechen),
+                            ft.ElevatedButton("Löschen", on_click=modul_loeschen_bestaetigt, bgcolor=ft.Colors.RED, color=ft.Colors.WHITE)
+                        ],
+                        actions_alignment=ft.MainAxisAlignment.END
+                    )
+                    page.dialog = dialog
+                    page.overlay.append(dialog)
+                    dialog.open = True
+                    page.on_keyboard_event = on_key
+                    page.update()
+
+
                 modul_card = ft.Card(
                     content=ft.Container(
                         content=ft.Column([
@@ -344,7 +396,13 @@ def main(page: ft.Page):
                                     content=ft.Text(modul.name, size=20, weight=ft.FontWeight.BOLD),
                                     expand=True
                                 ),
-                                ft.Text(f"{erledigte_anzahl}/{aufgaben_anzahl}", size=14)
+                                ft.Text(f"{erledigte_anzahl}/{aufgaben_anzahl}", size=14),
+                                ft.IconButton(
+                                    icon=ft.Icons.DELETE,
+                                    icon_color=ft.Colors.RED_700,
+                                    tooltip="Modul löschen",
+                                    on_click=lambda e, m=modul: loesche_modul(e, m)
+                                )
                             ]),
                             ft.Text(modul.beschreibung, size=18, opacity=0.9) if modul.beschreibung else ft.Container(),
                             ft.ProgressBar(value=fortschritt, color=modul.farbe, height=8),
@@ -355,10 +413,13 @@ def main(page: ft.Page):
                         on_click=lambda e, m=modul: modul_auswaehlen(m)
                     )
                 )
+
                 module_list.controls.append(modul_card)
-        
+
         page.update()
-    
+
+
+
     def modul_auswaehlen(modul: Modul):
         app.aktuelles_modul = modul
         aktualisiere_aufgaben_liste()
@@ -388,8 +449,8 @@ def main(page: ft.Page):
         if not app.aktuelles_modul.aufgaben:
             aufgaben_list.controls.append(
                 ft.Container(
-                    content=ft.Text("Noch keine Aufgaben vorhanden. Erstellen Sie Ihre erste Aufgabe!", 
-                                  size=16, text_align=ft.TextAlign.CENTER, italic=True),
+                    content=ft.Text("Noch keine Aufgaben vorhanden.", 
+                                  size=18, text_align=ft.TextAlign.CENTER, italic=True),
                     padding=20,
                     alignment=ft.alignment.center
                 )
@@ -414,36 +475,62 @@ def main(page: ft.Page):
                     aktualisiere_aufgaben_liste()
                     aktualisiere_module_liste()
                     aktualisiere_dashboard()
-                
+
                 def aufgabe_loeschen(e, aufgabe_idx=i):
-                    def bestaetigen_loeschen(e):
+                    def aufgabe_loeschen_bestaetigen(e=None):
                         del app.aktuelles_modul.aufgaben[aufgabe_idx]
                         app.daten_speichern()
                         aktualisiere_aufgaben_liste()
                         aktualisiere_module_liste()
                         aktualisiere_dashboard()
                         page.dialog.open = False
+
+                        # Snackbar anzeigen
+                        snack = ft.SnackBar(
+                            ft.Text(f"Aufgabe erfolgreich gelöscht."),
+                            duration=3000
+                        )
+                        page.snack_bar = snack
+                        page.overlay.append(snack)
+                        snack.open = True
+
                         page.update()
-                    
-                    def dialog_abbrechen(e):
+
+                    def aufgabe_loeschen_abbrechen(e=None):
                         page.dialog.open = False
                         page.update()
-                    
+
+                    def on_key(e: ft.KeyboardEvent):
+                        if not dialog.open:
+                            return
+                        if e.key == "Escape":
+                            aufgabe_loeschen_abbrechen()
+                        elif e.key == "Enter":
+                            aufgabe_loeschen_bestaetigen()
+
                     dialog = ft.AlertDialog(
                         modal=True,
                         title=ft.Text("Aufgabe löschen"),
-                        content=ft.Text(f"Möchten Sie die Aufgabe '{aufgabe.titel}' wirklich löschen?"),
+                        content=ft.Text(f"Möchten Sie die Aufgabe '{app.aktuelles_modul.aufgaben[aufgabe_idx].titel}' wirklich löschen?"),
                         actions=[
-                            ft.TextButton("Abbrechen", on_click=dialog_abbrechen),
-                            ft.ElevatedButton("Löschen", on_click=bestaetigen_loeschen, bgcolor=ft.Colors.RED, color=ft.Colors.WHITE)
+                            ft.TextButton("Abbrechen", on_click=aufgabe_loeschen_abbrechen),
+                            ft.ElevatedButton(
+                                "Löschen",
+                                on_click=aufgabe_loeschen_bestaetigen,
+                                bgcolor=ft.Colors.RED,
+                                color=ft.Colors.WHITE
+                            )
                         ],
                         actions_alignment=ft.MainAxisAlignment.END
                     )
                     page.dialog = dialog
                     page.overlay.append(dialog)
                     dialog.open = True
+                    page.on_keyboard_event = on_key
                     page.update()
-                
+
+
+
                 aufgabe_card = ft.Card(
                     content=ft.Container(
                         content=ft.Column([
