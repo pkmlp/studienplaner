@@ -166,13 +166,15 @@ def main(page: ft.Page):
     kalender_content = ft.Column(expand=True, scroll="auto")
     dashboard_content = ft.Column(expand=True, scroll="auto")
     
-    def modul_hinzufuegen_dialog(e=None):
-        modul_name = ft.TextField(label="Name", width=300)
-        modul_beschreibung = ft.TextField(label="Beschreibung", multiline=True, width=300)
+    def modul_dialog(e=None, modul_bearbeiten=None):
+        ist_bearbeiten = modul_bearbeiten is not None
+
+        modul_name = ft.TextField(label="Name", width=300, value=modul_bearbeiten.name if ist_bearbeiten else "")
+        modul_beschreibung = ft.TextField(label="Beschreibung", multiline=True, width=300, value=modul_bearbeiten.beschreibung if ist_bearbeiten else "")
         modul_farbe = ft.Dropdown(
             label="Farbe",
             width=300,
-             options=[
+            options=[
                 ft.dropdown.Option(text="Blau", key="#2196F3"),
                 ft.dropdown.Option(text="Grün", key="#4CAF50"),
                 ft.dropdown.Option(text="Orange", key="#FF9800"),
@@ -185,30 +187,41 @@ def main(page: ft.Page):
                 ft.dropdown.Option(text="Gelb", key="#FFFF00"),
                 ft.dropdown.Option(text="Beige", key="#FFE7BA")
             ],
-            key="#2196F3"
+            value=modul_bearbeiten.farbe if ist_bearbeiten else "#2196F3"
         )
 
-        def modul_speichern(e=None):  # Optionales Event-Argument
+        def modul_speichern(e=None):
             if modul_name.value and modul_name.value.strip():
-                
-                # modul erstellen
-                neues_modul = Modul(
-                    modul_name.value.strip(),
-                    modul_farbe.value,
-                    modul_beschreibung.value.strip() if modul_beschreibung.value else ""
-                )
-                
-                # Zur Liste hinzufügen
-                app.module.append(neues_modul)
-                
-                # Speichern und UI aktualisieren
-                app.daten_speichern()       
+                if ist_bearbeiten:
+                    # Vorhandenes Modul aktualisieren
+                    modul_bearbeiten.name = modul_name.value.strip()
+                    modul_bearbeiten.beschreibung = modul_beschreibung.value.strip() if modul_beschreibung.value else ""
+                    modul_bearbeiten.farbe = modul_farbe.value
+                else:
+                    # Neues Modul erstellen
+                    neues_modul = Modul(
+                        modul_name.value.strip(),
+                        modul_farbe.value,
+                        modul_beschreibung.value.strip() if modul_beschreibung.value else ""
+                    )
+                    app.module.append(neues_modul)
+
+                app.daten_speichern()
                 aktualisiere_module_liste()
-                
-                # Dialog schließen - ERST AM SCHLUSS!
+
+                # Snackbar einbauen
+                snack_text = f"Modul '{modul_name.value.strip()}' wurde {'aktualisiert' if ist_bearbeiten else 'erstellt'}."
+                snack = ft.SnackBar(
+                    ft.Text(snack_text),
+                    duration=3000
+                )
+                page.snack_bar = snack
+                page.overlay.append(snack)
+                snack.open = True
                 page.close(dialog)
+                page.update()
             else:
-                modul_name.error_text = "itte geben Sie einen Modulnamen ein"
+                modul_name.error_text = "Bitte geben Sie einen Modulnamen ein"
                 page.update()
 
         def dialog_abbrechen(e=None):
@@ -222,10 +235,9 @@ def main(page: ft.Page):
             elif e.key == "Enter":
                 modul_speichern()
 
-        # Dialog-Definition
         dialog = ft.AlertDialog(
             modal=True,
-            title=ft.Text("Neues Modul hinzufügen"),
+            title=ft.Text("Modul bearbeiten" if ist_bearbeiten else "Neues Modul hinzufügen"),
             content=ft.Column([
                 modul_name,
                 modul_beschreibung,
@@ -237,10 +249,7 @@ def main(page: ft.Page):
             ]
         )
 
-        # Keyboard-Handler registrieren (einmalig z. B. beim Initialisieren deiner Seite)
         page.on_keyboard_event = on_key
-
-        # Dialog öffnen
         page.open(dialog)
         page.update()
         modul_name.focus()
@@ -248,14 +257,16 @@ def main(page: ft.Page):
 
 
     # Block 3: Aufgabe hinzufügen Dialog
-    def aufgabe_hinzufuegen_dialog(e=None):
+    def aufgabe_dialog(e=None, aufgabe_bearbeiten=None):
         if not app.aktuelles_modul:
             return
 
-        # Eingabefelder definieren
-        aufgabe_titel = ft.TextField(label="Aufgabentitel", width=300)
-        aufgabe_beschreibung = ft.TextField(label="Beschreibung", multiline=True, width=300)
-        aufgabe_datum = ft.TextField(label="Fälligkeitsdatum (YYYY-MM-DD)", width=300)
+        ist_bearbeiten = aufgabe_bearbeiten is not None
+
+        # Eingabefelder
+        aufgabe_titel = ft.TextField(label="Aufgabentitel", width=300, value=aufgabe_bearbeiten.titel if ist_bearbeiten else "")
+        aufgabe_beschreibung = ft.TextField(label="Beschreibung", multiline=True, width=300, value=aufgabe_bearbeiten.beschreibung if ist_bearbeiten else "")
+        aufgabe_datum = ft.TextField(label="Fälligkeitsdatum (YYYY-MM-DD)", width=300, value=aufgabe_bearbeiten.faelligkeitsdatum if ist_bearbeiten else "")
         aufgabe_prioritaet = ft.Dropdown(
             label="Priorität",
             width=300,
@@ -265,15 +276,12 @@ def main(page: ft.Page):
                 ft.dropdown.Option("Abgabe"),
                 ft.dropdown.Option("Prüfung")
             ],
-            value="Selbststudium"
+            value=aufgabe_bearbeiten.prioritaet if ist_bearbeiten else "Selbststudium"
         )
 
-        # Funktion zum Dialog-Schließen
         def dialog_schliessen(e=None):
-            dialog.open = False
-            page.update()
+            page.close(dialog)
 
-        # Funktion zum Speichern
         def aufgabe_speichern(e=None):
             if aufgabe_titel.value.strip():
                 # Datum validieren
@@ -285,20 +293,43 @@ def main(page: ft.Page):
                     except:
                         pass
 
-                neue_aufgabe = Aufgabe(
-                    aufgabe_titel.value.strip(),
-                    aufgabe_beschreibung.value.strip(),
-                    faelligkeitsdatum,
-                    aufgabe_prioritaet.value
-                )
-                app.aktuelles_modul.aufgaben.append(neue_aufgabe)
+                if ist_bearbeiten:
+                    # Aufgabe aktualisieren
+                    aufgabe_bearbeiten.titel = aufgabe_titel.value.strip()
+                    aufgabe_bearbeiten.beschreibung = aufgabe_beschreibung.value.strip()
+                    aufgabe_bearbeiten.faelligkeitsdatum = faelligkeitsdatum
+                    aufgabe_bearbeiten.prioritaet = aufgabe_prioritaet.value
+                else:
+                    # Neue Aufgabe anlegen
+                    neue_aufgabe = Aufgabe(
+                        aufgabe_titel.value.strip(),
+                        aufgabe_beschreibung.value.strip(),
+                        faelligkeitsdatum,
+                        aufgabe_prioritaet.value
+                    )
+                    app.aktuelles_modul.aufgaben.append(neue_aufgabe)
+
                 app.daten_speichern()
                 aktualisiere_aufgaben_liste()
+                aktualisiere_module_liste()
                 aktualisiere_dashboard()
-                dialog.open = False
+
+                # Snackbar anzeigen
+                msg = "Aufgabe erfolgreich bearbeitet." if ist_bearbeiten else "Aufgabe erfolgreich erstellt."
+                snack = ft.SnackBar(
+                    ft.Text(msg),
+                    duration=3000
+                )
+                page.snack_bar = snack
+                page.overlay.append(snack)
+                snack.open = True
+
+                page.close(dialog)
+                page.update()
+            else:
+                aufgabe_titel.error_text = "Bitte geben Sie einen Aufgabentitel ein"
                 page.update()
 
-        # Tasteneingaben behandeln
         def on_key(e: ft.KeyboardEvent):
             if not dialog.open:
                 return
@@ -307,10 +338,9 @@ def main(page: ft.Page):
             elif e.key == "Enter":
                 aufgabe_speichern()
 
-        # Dialog-Definition
         dialog = ft.AlertDialog(
             modal=True,
-            title=ft.Text(f"Neue Aufgabe für {app.aktuelles_modul.name}"),
+            title=ft.Text("Aufgabe bearbeiten" if ist_bearbeiten else f"Neue Aufgabe für {app.aktuelles_modul.name}"),
             content=ft.Column([
                 aufgabe_titel,
                 aufgabe_beschreibung,
@@ -323,15 +353,11 @@ def main(page: ft.Page):
             ]
         )
 
-        # Dialog anzeigen & Fokus setzen
         page.dialog = dialog
         page.overlay.append(dialog)
         dialog.open = True
         page.update()
-        aufgabe_titel.focus()  # Cursor in erstes Feld setzen
-        page.update()
-
-        # Tastatureingaben aktivieren (nur einmal registrieren in main!)
+        aufgabe_titel.focus()
         page.on_keyboard_event = on_key
 
     def aktualisiere_module_liste():
@@ -402,7 +428,6 @@ def main(page: ft.Page):
                     page.on_keyboard_event = on_key
                     page.update()
 
-
                 modul_card = ft.Card(
                     content=ft.Container(
                         content=ft.Column([
@@ -412,12 +437,22 @@ def main(page: ft.Page):
                                     expand=True
                                 ),
                                 ft.Text(f"{erledigte_anzahl}/{aufgaben_anzahl}", size=14),
-                                ft.IconButton(
-                                    icon=ft.Icons.DELETE,
-                                    icon_color=ft.Colors.RED_700,
-                                    tooltip="Modul löschen",
-                                    on_click=lambda e, m=modul: loesche_modul(e, m)
-                                )
+                                ft.Row([
+                                    ft.IconButton(
+                                        icon=ft.Icons.EDIT,
+                                        icon_color=ft.Colors.GREY_800,
+                                        tooltip="Modul bearbeiten",
+                                        on_click=lambda e, m=modul: modul_dialog(e, modul_bearbeiten=m),
+                                        style=ft.ButtonStyle(padding=5)
+                                    ),
+                                    ft.IconButton(
+                                        icon=ft.Icons.DELETE,
+                                        icon_color=ft.Colors.RED_700,
+                                        tooltip="Modul löschen",
+                                        on_click=lambda e, m=modul: loesche_modul(e, m),
+                                        style=ft.ButtonStyle(padding=5)
+                                    )
+                                ], spacing=0)  # <- Icons ganz nah beieinander
                             ]),
                             ft.Text(modul.beschreibung, size=18, opacity=0.9) if modul.beschreibung else ft.Container(),
                             ft.ProgressBar(value=fortschritt, color=modul.farbe, height=8),
@@ -439,33 +474,33 @@ def main(page: ft.Page):
         app.aktuelles_modul = modul
         aktualisiere_aufgaben_liste()
     
+ 
     def aktualisiere_aufgaben_liste():
         aufgaben_list.controls.clear()
-        
+
         if not app.aktuelles_modul:
             aufgaben_list.controls.append(
                 ft.Container(
-                    content=ft.Text("Wählen Sie ein Modul aus der Liste links aus", 
-                                  size=18, text_align=ft.TextAlign.CENTER, italic=True),
+                    content=ft.Text("Wählen Sie ein Modul aus der Liste links aus",
+                                size=18, text_align=ft.TextAlign.CENTER, italic=True),
                     padding=20,
                     alignment=ft.alignment.center
                 )
             )
             page.update()
             return
-        
-        # Header
+
         header = ft.Row([
             ft.Text(f"Aufgaben für {app.aktuelles_modul.name}", size=20, weight=ft.FontWeight.BOLD),
-            ft.ElevatedButton("Neue Aufgabe", icon=ft.Icons.ADD, on_click=aufgabe_hinzufuegen_dialog)
+            ft.ElevatedButton("Neue Aufgabe", icon=ft.Icons.ADD, on_click=aufgabe_dialog)
         ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
         aufgaben_list.controls.append(header)
-        
+
         if not app.aktuelles_modul.aufgaben:
             aufgaben_list.controls.append(
                 ft.Container(
-                    content=ft.Text("Noch keine Aufgaben vorhanden.", 
-                                  size=18, text_align=ft.TextAlign.CENTER, italic=True),
+                    content=ft.Text("Noch keine Aufgaben vorhanden.",
+                                size=18, text_align=ft.TextAlign.CENTER, italic=True),
                     padding=20,
                     alignment=ft.alignment.center
                 )
@@ -475,15 +510,15 @@ def main(page: ft.Page):
                 prioritaet_farbe = {
                     "Selbststudium": ft.Colors.GREEN,
                     "Praktische Arbeit": ft.Colors.BLUE,
-                    "Abgabe (schriftlich)": ft.Colors.ORANGE,
+                    "Abgabe": ft.Colors.ORANGE,
                     "Prüfung": ft.Colors.RED
                 }.get(aufgabe.prioritaet, ft.Colors.BLUE)
-                
+
                 status_icon = ft.Icons.CHECK_CIRCLE if aufgabe.erledigt else ft.Icons.RADIO_BUTTON_UNCHECKED
                 status_farbe = ft.Colors.GREEN if aufgabe.erledigt else ft.Colors.GREY
-                
+
                 card_farbe = ft.Colors.RED_50 if aufgabe.ist_ueberfaellig() else None
-                
+
                 def toggle_aufgabe_status(e, aufgabe_idx=i):
                     app.aktuelles_modul.aufgaben[aufgabe_idx].erledigt = not app.aktuelles_modul.aufgaben[aufgabe_idx].erledigt
                     app.daten_speichern()
@@ -544,7 +579,25 @@ def main(page: ft.Page):
                     page.on_keyboard_event = on_key
                     page.update()
 
-
+                # Buttons Edit + Delete nebeneinander mit spacing=0 und Farbe GREY_800
+                edit_button = ft.IconButton(
+                    icon=ft.Icons.EDIT,
+                    icon_color=ft.Colors.GREY_800,
+                    tooltip="Aufgabe bearbeiten",
+                    on_click=lambda e, a=aufgabe: aufgabe_dialog(e, a),
+                    padding=5,
+                    width=35,
+                    height=35,
+                )
+                delete_button = ft.IconButton(
+                    icon=ft.Icons.DELETE,
+                    icon_color=ft.Colors.RED_700,
+                    tooltip="Aufgabe löschen",
+                    on_click=aufgabe_loeschen,
+                    padding=5,
+                    width=35,
+                    height=35,
+                )
 
                 aufgabe_card = ft.Card(
                     content=ft.Container(
@@ -580,10 +633,10 @@ def main(page: ft.Page):
                                     ], spacing=5),
                                     expand=True
                                 ),
-                                ft.IconButton(
-                                    icon=ft.Icons.DELETE,
-                                    icon_color=ft.Colors.RED,
-                                    on_click=aufgabe_loeschen
+                                ft.Row(
+                                    [edit_button, delete_button],
+                                    spacing=0,
+                                    vertical_alignment=ft.CrossAxisAlignment.CENTER
                                 )
                             ])
                         ]),
@@ -592,9 +645,8 @@ def main(page: ft.Page):
                     )
                 )
                 aufgaben_list.controls.append(aufgabe_card)
-        
-        page.update()
-    
+
+        page.update()   
 
     def aktualisiere_kalender():
         kalender_content.controls.clear()
@@ -758,7 +810,7 @@ def main(page: ft.Page):
                     content=ft.Column([
                         ft.Row([
                             ft.Text("Module", size=24, weight=ft.FontWeight.BOLD),
-                            ft.ElevatedButton("Neues Modul", icon=ft.Icons.ADD, on_click=modul_hinzufuegen_dialog)
+                            ft.ElevatedButton("Neues Modul", icon=ft.Icons.ADD, on_click=modul_dialog)
                         ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                         ft.Container(module_list, expand=True)
                     ]),
@@ -811,7 +863,7 @@ def main(page: ft.Page):
     def handle_keyboard(e: ft.KeyboardEvent):
         if e.ctrl:
             if e.key == "N":  # Ctrl+N für neues Modul
-                modul_hinzufuegen_dialog()
+                modul_dialog()
             elif e.key == "E":  # Ctrl+E für Export
                 csv_exportieren(e)
             elif e.key == "S":  # Ctrl+S für Speichern
