@@ -102,7 +102,7 @@ class StudienplanerApp:
                 json.dump(data, f, indent=2, ensure_ascii=False)
         except Exception as e:
             print(f"Fehler beim Speichern der Daten: {e}")
-    
+
     def export_csv(self):
         try:
             import csv
@@ -134,6 +134,21 @@ class StudienplanerApp:
         except Exception as e:
             print(f"Fehler beim CSV-Export: {e}")
             return None
+
+    def backup_json(self):
+        try:
+            datei_name_backup = f"studienplaner_backup_{date.today().isoformat()}.json"
+            backup_data = {
+                "module": [modul.to_dict() for modul in self.module],
+                "gespeichert_am": datetime.now().isoformat()
+            }
+            with open(datei_name_backup, 'w', encoding='utf-8') as f:
+                json.dump(backup_data, f, indent=2, ensure_ascii=False)
+            return datei_name_backup
+        except Exception as e:
+            print(f"Fehler beim JSON-Backup: {e}")
+            return None
+
 
 def main(page: ft.Page):
     page.title = "Studienplaner"
@@ -778,6 +793,19 @@ def main(page: ft.Page):
         page.overlay.append(page.snack_bar)        
         page.snack_bar.open = True
         page.update()
+    
+    def json_backup(e):
+        datei_name_backup = app.backup_json()
+        if datei_name_backup:
+            page.snack_bar = ft.SnackBar(content=ft.Text(f"Daten Backup erfolgreich nach: {datei_name_backup}"))
+            page.snack_bar.open = True
+        else:
+            page.snack_bar = ft.SnackBar(ft.Text("Fehler beim Backup"))
+            page.snack_bar.open = True
+ 
+        page.overlay.append(page.snack_bar)        
+        page.snack_bar.open = True
+        page.update()
 
     # Block 6: Keyboard Shortcuts
     def handle_keyboard(e: ft.KeyboardEvent):
@@ -807,14 +835,27 @@ def main(page: ft.Page):
     )
     
     # Block 6: Menüleiste mit Export
-    menubar = ft.Row([
-        tabs,
-        ft.ElevatedButton(
-            "CSV Export",
-            icon=ft.Icons.DOWNLOAD,
-            on_click=csv_exportieren
-        )
-    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+    menubar = ft.Row(
+        controls=[
+            tabs,  # Tabs linksbündig
+            ft.Row(  # Gruppierung der Buttons
+                controls=[
+                    ft.ElevatedButton(
+                        "CSV Export",
+                        icon=ft.Icons.DOWNLOAD,
+                        on_click=csv_exportieren
+                    ),
+                    ft.ElevatedButton(
+                        "JSON Backup",
+                        icon=ft.Icons.DOWNLOAD,
+                        on_click=json_backup
+                    )
+                ],
+                spacing=10  # Abstand zwischen den Buttons
+            )
+        ],
+        alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+    )
     
     # Hauptinhalt
     content_area = ft.Container(expand=True)
